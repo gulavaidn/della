@@ -1,1 +1,695 @@
-<!DOCTYPE html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Burger & Kebab</h1></body></html>
+<!doctype html>
+<html lang="id">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu Burger Interaktif</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    .menu-card {
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .menu-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+
+    .cart-badge {
+      animation: pulse 0.3s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    .modal-overlay {
+      backdrop-filter: blur(4px);
+    }
+
+    .slide-up {
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="w-full min-h-full">
+  <div id="app" class="w-full min-h-full"></div>
+  <script>
+    const defaultConfig = {
+      background_color: "#ffffff",
+      surface_color: "#fef9c3",
+      text_color: "#713f12",
+      primary_action_color: "#eab308",
+      secondary_action_color: "#fbbf24",
+      font_family: "Poppins",
+      font_size: 16,
+      restaurant_name: "GULAVA Burger & Kebab",
+      tagline: "Burger Lezat, Harga Bersahabat | Pre-Order",
+      appetizer_title: "🍔 Menu Burger",
+      main_course_title: "🌯 Menu Kebab",
+      dessert_title: "🥤 Minuman",
+      cart_button_text: "Keranjang",
+      checkout_button_text: "Pesan Sekarang",
+      name_label: "Nama Lengkap",
+      phone_label: "Nomor Telepon",
+      address_label: "Alamat Pengiriman",
+      notes_label: "Catatan Pesanan"
+    };
+
+    const WHATSAPP_NUMBER = "6281524353549";
+
+    const menuData = {
+      appetizers: [
+        { id: 1, name: "Burger Crispy Chicken", description: "Burger ayam crispy dengan sayuran segar", price: 12000 },
+        { id: 2, name: "Burger Crispy Chicken Cheese", description: "Burger ayam crispy dengan keju leleh", price: 14000 },
+        { id: 3, name: "Burger Crispy Chicken Special", description: "Burger ayam crispy dengan topping spesial", price: 15000 },
+        { id: 4, name: "Burger Beef Barbeque", description: "Burger daging sapi dengan saus barbeque", price: 15000 },
+        { id: 5, name: "Burger Beef Cheese", description: "Burger daging sapi dengan keju premium", price: 17000 },
+        { id: 6, name: "Burger Beef Special", description: "Burger daging sapi dengan topping lengkap", price: 18000 }
+      ],
+      mainCourses: [
+        { id: 7, name: "Kebab Egg", description: "Kebab dengan telur dan sayuran", price: 5000 },
+        { id: 8, name: "Kebab Egg Potato", description: "Kebab telur dengan kentang goreng", price: 7000 },
+        { id: 9, name: "Kebab Sausage Potato", description: "Kebab sosis dengan kentang goreng", price: 10000 },
+        { id: 10, name: "Kebab Beef Potato", description: "Kebab daging sapi dengan kentang goreng", price: 10000 },
+        { id: 11, name: "Kebab Special", description: "Kebab dengan isi lengkap spesial", price: 15000 }
+      ],
+      beverages: []
+    };
+
+    let cart = [];
+    let currentView = 'menu';
+    let customerData = {
+      name: '',
+      phone: '',
+      address: '',
+      notes: '',
+      payment: 'qris'
+    };
+
+    function formatRupiah(number) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(number);
+    }
+
+    function addToCart(itemId) {
+      const allItems = [...menuData.appetizers, ...menuData.mainCourses, ...menuData.beverages];
+      const item = allItems.find(i => i.id === itemId);
+      
+      const existingItem = cart.find(c => c.id === itemId);
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        cart.push({ ...item, quantity: 1 });
+      }
+      
+      renderApp(window.elementSdk ? window.elementSdk.config : defaultConfig);
+    }
+
+    function updateQuantity(itemId, delta) {
+      const item = cart.find(c => c.id === itemId);
+      if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+          cart = cart.filter(c => c.id !== itemId);
+        }
+      }
+      renderApp(window.elementSdk ? window.elementSdk.config : defaultConfig);
+    }
+
+    function removeFromCart(itemId) {
+      cart = cart.filter(c => c.id !== itemId);
+      renderApp(window.elementSdk ? window.elementSdk.config : defaultConfig);
+    }
+
+    function getCartTotal() {
+      return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+
+    function getCartCount() {
+      return cart.reduce((sum, item) => sum + item.quantity, 0);
+    }
+
+    function switchView(view) {
+      currentView = view;
+      renderApp(window.elementSdk ? window.elementSdk.config : defaultConfig);
+    }
+
+    function sendToWhatsApp() {
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      
+      if (!customerData.name || !customerData.phone || !customerData.address) {
+        showNotification('Mohon lengkapi data pemesanan!');
+        return;
+      }
+
+      if (cart.length === 0) {
+        showNotification('Keranjang masih kosong!');
+        return;
+      }
+
+      let message = `*PESANAN BARU*\n\n`;
+      message += `Nama: ${customerData.name}\n`;
+      message += `Telepon: ${customerData.phone}\n`;
+      message += `Alamat: ${customerData.address}\n`;
+      if (customerData.notes) {
+        message += `Catatan: ${customerData.notes}\n`;
+      }
+      message += `\n*DETAIL PESANAN:*\n`;
+      
+      cart.forEach((item, index) => {
+        message += `\n${index + 1}. ${item.name}\n`;
+        message += `   ${item.quantity} x ${formatRupiah(item.price)} = ${formatRupiah(item.price * item.quantity)}\n`;
+      });
+      
+      message += `\n*TOTAL: ${formatRupiah(getCartTotal())}*\n`;
+      message += `\nMetode Pembayaran: ${customerData.payment.toUpperCase()}`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+      
+      window.open(waLink, '_blank', 'noopener,noreferrer');
+    }
+
+    function showNotification(message) {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: ${defaultConfig.primary_action_color};
+        color: white;
+        padding: 16px 32px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-size: 16px;
+        font-weight: 600;
+      `;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+
+    function renderMenuView(config) {
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const baseFontStack = 'Arial, sans-serif';
+
+      return `
+        <!-- Header -->
+        <header style="background: linear-gradient(135deg, ${config.primary_action_color}, ${config.secondary_action_color}); padding: ${baseSize * 2}px ${baseSize}px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <h1 style="font-size: ${baseSize * 2.5}px; font-weight: bold; color: white; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+            ${config.restaurant_name || defaultConfig.restaurant_name}
+          </h1>
+          <p style="font-size: ${baseSize * 1.1}px; color: white; opacity: 0.95; font-family: ${customFont}, ${baseFontStack};">
+            ${config.tagline || defaultConfig.tagline}
+          </p>
+        </header>
+
+        <!-- Cart Button -->
+        <div style="position: fixed; bottom: ${baseSize * 2}px; right: ${baseSize * 2}px; z-index: 200;">
+          <button onclick="switchView('cart')" style="background-color: ${config.primary_action_color}; color: white; padding: ${baseSize}px ${baseSize * 2}px; border-radius: ${baseSize * 3}px; border: none; cursor: pointer; font-size: ${baseSize * 1.1}px; font-weight: 600; box-shadow: 0 8px 16px rgba(0,0,0,0.3); display: flex; align-items: center; gap: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+            🛒 ${config.cart_button_text || defaultConfig.cart_button_text}
+            ${getCartCount() > 0 ? `<span class="cart-badge" style="background-color: white; color: ${config.primary_action_color}; border-radius: 50%; width: ${baseSize * 1.5}px; height: ${baseSize * 1.5}px; display: flex; align-items: center; justify-content: center; font-size: ${baseSize * 0.85}px; font-weight: bold;">${getCartCount()}</span>` : ''}
+          </button>
+        </div>
+
+        <!-- Menu Content -->
+        <main style="max-width: 1200px; margin: 0 auto; padding: ${baseSize * 2}px ${baseSize}px;">
+          <!-- Appetizers -->
+          <section style="margin-bottom: ${baseSize * 3}px;">
+            <h2 style="font-size: ${baseSize * 2}px; font-weight: bold; color: ${config.text_color}; margin-bottom: ${baseSize * 1.5}px; font-family: ${customFont}, ${baseFontStack}; text-align: center;">
+              ${config.appetizer_title || defaultConfig.appetizer_title}
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: ${baseSize * 1.5}px;">
+              ${menuData.appetizers.map(item => `
+                <div class="menu-card" style="background-color: ${config.surface_color}; border-radius: ${baseSize}px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                  <div style="background: linear-gradient(135deg, ${config.secondary_action_color}, ${config.primary_action_color}); padding: ${baseSize * 2}px; text-align: center;">
+                  </div>
+                  <div style="padding: ${baseSize * 1.5}px;">
+                    <h3 style="font-size: ${baseSize * 1.2}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.name}
+                    </h3>
+                    <p style="font-size: ${baseSize * 0.9}px; color: ${config.text_color}; opacity: 0.7; margin-bottom: ${baseSize}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.description}
+                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: ${baseSize * 1.3}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">
+                        ${formatRupiah(item.price)}
+                      </span>
+                      <button onclick="addToCart(${item.id})" style="background-color: ${config.primary_action_color}; color: white; padding: ${baseSize * 0.75}px ${baseSize * 1.5}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 0.9}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </section>
+
+          <!-- Main Courses -->
+          <section style="margin-bottom: ${baseSize * 3}px;">
+            <h2 style="font-size: ${baseSize * 2}px; font-weight: bold; color: ${config.text_color}; margin-bottom: ${baseSize * 1.5}px; font-family: ${customFont}, ${baseFontStack}; text-align: center;">
+              ${config.main_course_title || defaultConfig.main_course_title}
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: ${baseSize * 1.5}px;">
+              ${menuData.mainCourses.map(item => `
+                <div class="menu-card" style="background-color: ${config.surface_color}; border-radius: ${baseSize}px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                  <div style="background: linear-gradient(135deg, ${config.secondary_action_color}, ${config.primary_action_color}); padding: ${baseSize * 2}px; text-align: center;">
+                  </div>
+                  <div style="padding: ${baseSize * 1.5}px;">
+                    <h3 style="font-size: ${baseSize * 1.2}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.name}
+                    </h3>
+                    <p style="font-size: ${baseSize * 0.9}px; color: ${config.text_color}; opacity: 0.7; margin-bottom: ${baseSize}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.description}
+                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: ${baseSize * 1.3}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">
+                        ${formatRupiah(item.price)}
+                      </span>
+                      <button onclick="addToCart(${item.id})" style="background-color: ${config.primary_action_color}; color: white; padding: ${baseSize * 0.75}px ${baseSize * 1.5}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 0.9}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </section>
+
+          <!-- Beverages -->
+          ${menuData.beverages.length > 0 ? `
+          <section style="margin-bottom: ${baseSize * 5}px;">
+            <h2 style="font-size: ${baseSize * 2}px; font-weight: bold; color: ${config.text_color}; margin-bottom: ${baseSize * 1.5}px; font-family: ${customFont}, ${baseFontStack}; text-align: center;">
+              ${config.dessert_title || defaultConfig.dessert_title}
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: ${baseSize * 1.5}px;">
+              ${menuData.beverages.map(item => `
+                <div class="menu-card" style="background-color: ${config.surface_color}; border-radius: ${baseSize}px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                  <div style="background: linear-gradient(135deg, ${config.secondary_action_color}, ${config.primary_action_color}); padding: ${baseSize * 2}px; text-align: center;">
+                  </div>
+                  <div style="padding: ${baseSize * 1.5}px;">
+                    <h3 style="font-size: ${baseSize * 1.2}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.name}
+                    </h3>
+                    <p style="font-size: ${baseSize * 0.9}px; color: ${config.text_color}; opacity: 0.7; margin-bottom: ${baseSize}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.description}
+                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: ${baseSize * 1.3}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">
+                        ${formatRupiah(item.price)}
+                      </span>
+                      <button onclick="addToCart(${item.id})" style="background-color: ${config.primary_action_color}; color: white; padding: ${baseSize * 0.75}px ${baseSize * 1.5}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 0.9}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </section>
+          ` : ''}
+        </main>
+      `;
+    }
+
+    function renderCartView(config) {
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const baseFontStack = 'Arial, sans-serif';
+
+      return `
+        <div style="max-width: 900px; margin: 0 auto; padding: ${baseSize * 2}px ${baseSize}px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: ${baseSize * 2}px;">
+            <button onclick="switchView('menu')" style="background-color: ${config.secondary_action_color}; color: white; padding: ${baseSize * 0.75}px ${baseSize * 1.5}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+              ← Kembali
+            </button>
+            <h2 style="font-size: ${baseSize * 2}px; font-weight: bold; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">
+              🛒 Keranjang Belanja
+            </h2>
+            <div style="width: ${baseSize * 6}px;"></div>
+          </div>
+
+          ${cart.length === 0 ? `
+            <div style="background-color: ${config.surface_color}; padding: ${baseSize * 4}px; border-radius: ${baseSize}px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+              <div style="font-size: ${baseSize * 5}px; margin-bottom: ${baseSize}px;">🛒</div>
+              <p style="font-size: ${baseSize * 1.2}px; color: ${config.text_color}; opacity: 0.6; font-family: ${customFont}, ${baseFontStack};">
+                Keranjang Anda masih kosong
+              </p>
+            </div>
+          ` : `
+            <div style="background-color: ${config.surface_color}; padding: ${baseSize * 1.5}px; border-radius: ${baseSize}px; margin-bottom: ${baseSize * 1.5}px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+              ${cart.map(item => `
+                <div style="display: flex; align-items: center; gap: ${baseSize}px; padding: ${baseSize}px; border-bottom: 1px solid rgba(0,0,0,0.1);">
+                  <div style="flex: 1;">
+                    <h3 style="font-size: ${baseSize * 1.1}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.25}px; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.name}
+                    </h3>
+                    <p style="font-size: ${baseSize * 1.1}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">
+                      ${formatRupiah(item.price)}
+                    </p>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: ${baseSize * 0.75}px;">
+                    <button onclick="updateQuantity(${item.id}, -1)" style="background-color: ${config.secondary_action_color}; color: white; width: ${baseSize * 2}px; height: ${baseSize * 2}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 1.2}px; font-weight: bold; display: flex; align-items: center; justify-content: center;">
+                      −
+                    </button>
+                    <span style="font-size: ${baseSize * 1.2}px; font-weight: bold; color: ${config.text_color}; min-width: ${baseSize * 2}px; text-align: center; font-family: ${customFont}, ${baseFontStack};">
+                      ${item.quantity}
+                    </span>
+                    <button onclick="updateQuantity(${item.id}, 1)" style="background-color: ${config.secondary_action_color}; color: white; width: ${baseSize * 2}px; height: ${baseSize * 2}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 1.2}px; font-weight: bold; display: flex; align-items: center; justify-content: center;">
+                      +
+                    </button>
+                  </div>
+                  <button onclick="removeFromCart(${item.id})" style="background-color: #ef4444; color: white; padding: ${baseSize * 0.5}px ${baseSize}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize * 0.85}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+                    Hapus
+                  </button>
+                </div>
+              `).join('')}
+              
+              <div style="padding: ${baseSize * 1.5}px; background-color: ${config.background_color}; margin-top: ${baseSize}px; border-radius: ${baseSize * 0.5}px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: ${baseSize * 1.5}px; font-weight: bold; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">
+                    Total:
+                  </span>
+                  <span style="font-size: ${baseSize * 1.8}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">
+                    ${formatRupiah(getCartTotal())}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="switchView('checkout')" style="width: 100%; background-color: ${config.primary_action_color}; color: white; padding: ${baseSize * 1.25}px; border-radius: ${baseSize}px; border: none; cursor: pointer; font-size: ${baseSize * 1.2}px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-family: ${customFont}, ${baseFontStack};">
+              ${config.checkout_button_text || defaultConfig.checkout_button_text} →
+            </button>
+          `}
+        </div>
+      `;
+    }
+
+    function renderCheckoutView(config) {
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const baseFontStack = 'Arial, sans-serif';
+
+      return `
+        <div style="max-width: 700px; margin: 0 auto; padding: ${baseSize * 2}px ${baseSize}px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: ${baseSize * 2}px;">
+            <button onclick="switchView('cart')" style="background-color: ${config.secondary_action_color}; color: white; padding: ${baseSize * 0.75}px ${baseSize * 1.5}px; border-radius: ${baseSize * 0.5}px; border: none; cursor: pointer; font-size: ${baseSize}px; font-weight: 600; font-family: ${customFont}, ${baseFontStack};">
+              ← Kembali
+            </button>
+            <h2 style="font-size: ${baseSize * 2}px; font-weight: bold; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">
+              📋 Form Pemesanan
+            </h2>
+            <div style="width: ${baseSize * 6}px;"></div>
+          </div>
+
+          <form id="checkoutForm" style="background-color: ${config.surface_color}; padding: ${baseSize * 2}px; border-radius: ${baseSize}px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div style="margin-bottom: ${baseSize * 1.5}px;">
+              <label for="customerName" style="display: block; font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                ${config.name_label || defaultConfig.name_label} *
+              </label>
+              <input 
+                type="text" 
+                id="customerName" 
+                required
+                value="${customerData.name}"
+                style="width: 100%; padding: ${baseSize}px; border: 2px solid ${config.secondary_action_color}; border-radius: ${baseSize * 0.5}px; font-size: ${baseSize}px; font-family: ${customFont}, ${baseFontStack}; box-sizing: border-box;"
+              >
+            </div>
+
+            <div style="margin-bottom: ${baseSize * 1.5}px;">
+              <label for="customerPhone" style="display: block; font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                ${config.phone_label || defaultConfig.phone_label} *
+              </label>
+              <input 
+                type="tel" 
+                id="customerPhone" 
+                required
+                value="${customerData.phone}"
+                placeholder="08xxxxxxxxxx"
+                style="width: 100%; padding: ${baseSize}px; border: 2px solid ${config.secondary_action_color}; border-radius: ${baseSize * 0.5}px; font-size: ${baseSize}px; font-family: ${customFont}, ${baseFontStack}; box-sizing: border-box;"
+              >
+            </div>
+
+            <div style="margin-bottom: ${baseSize * 1.5}px;">
+              <label for="customerAddress" style="display: block; font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                ${config.address_label || defaultConfig.address_label} *
+              </label>
+              <textarea 
+                id="customerAddress" 
+                required
+                rows="3"
+                style="width: 100%; padding: ${baseSize}px; border: 2px solid ${config.secondary_action_color}; border-radius: ${baseSize * 0.5}px; font-size: ${baseSize}px; font-family: ${customFont}, ${baseFontStack}; resize: vertical; box-sizing: border-box;"
+              >${customerData.address}</textarea>
+            </div>
+
+            <div style="margin-bottom: ${baseSize * 1.5}px;">
+              <label for="customerNotes" style="display: block; font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize * 0.5}px; font-family: ${customFont}, ${baseFontStack};">
+                ${config.notes_label || defaultConfig.notes_label}
+              </label>
+              <textarea 
+                id="customerNotes" 
+                rows="2"
+                placeholder="Contoh: Tidak pakai bawang, tambah saus"
+                style="width: 100%; padding: ${baseSize}px; border: 2px solid ${config.secondary_action_color}; border-radius: ${baseSize * 0.5}px; font-size: ${baseSize}px; font-family: ${customFont}, ${baseFontStack}; resize: vertical; box-sizing: border-box;"
+              >${customerData.notes}</textarea>
+            </div>
+
+            <div style="margin-bottom: ${baseSize * 2}px;">
+              <label style="display: block; font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; margin-bottom: ${baseSize}px; font-family: ${customFont}, ${baseFontStack};">
+                Metode Pembayaran *
+              </label>
+              <div style="display: flex; gap: ${baseSize}px;">
+                <label style="flex: 1; cursor: pointer;">
+                  <input 
+                    type="radio" 
+                    name="payment" 
+                    value="qris" 
+                    ${customerData.payment === 'qris' ? 'checked' : ''}
+                    style="display: none;"
+                  >
+                  <div class="payment-option" style="padding: ${baseSize * 1.5}px; border: 3px solid ${customerData.payment === 'qris' ? config.primary_action_color : config.secondary_action_color}; border-radius: ${baseSize * 0.75}px; text-align: center; background-color: ${customerData.payment === 'qris' ? config.background_color : 'transparent'}; transition: all 0.2s;">
+                    <div style="font-size: ${baseSize * 2.5}px; margin-bottom: ${baseSize * 0.5}px;">📱</div>
+                    <div style="font-size: ${baseSize * 0.95}px; font-weight: 600; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">QRIS</div>
+                  </div>
+                </label>
+                <label style="flex: 1; cursor: pointer;">
+                  <input 
+                    type="radio" 
+                    name="payment" 
+                    value="cod" 
+                    ${customerData.payment === 'cod' ? 'checked' : ''}
+                    style="display: none;"
+                  >
+                  <div class="payment-option" style="padding: ${baseSize * 1.5}px; border: 3px solid ${customerData.payment === 'cod' ? config.primary_action_color : config.secondary_action_color}; border-radius: ${baseSize * 0.75}px; text-align: center; background-color: ${customerData.payment === 'cod' ? config.background_color : 'transparent'}; transition: all 0.2s;">
+                    <div style="font-size: ${baseSize * 2.5}px; margin-bottom: ${baseSize * 0.5}px;">💵</div>
+                    <div style="font-size: ${baseSize * 0.95}px; font-weight: 600; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">Cash</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div style="background-color: ${config.background_color}; padding: ${baseSize * 1.5}px; border-radius: ${baseSize * 0.75}px; margin-bottom: ${baseSize * 1.5}px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: ${baseSize * 0.5}px;">
+                <span style="font-size: ${baseSize}px; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">Subtotal:</span>
+                <span style="font-size: ${baseSize}px; font-weight: 600; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">${formatRupiah(getCartTotal())}</span>
+              </div>
+              <div style="border-top: 2px dashed ${config.secondary_action_color}; margin: ${baseSize}px 0; padding-top: ${baseSize}px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: ${baseSize * 1.3}px; font-weight: bold; color: ${config.text_color}; font-family: ${customFont}, ${baseFontStack};">Total:</span>
+                  <span style="font-size: ${baseSize * 1.5}px; font-weight: bold; color: ${config.primary_action_color}; font-family: ${customFont}, ${baseFontStack};">${formatRupiah(getCartTotal())}</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" style="width: 100%; background-color: #25D366; color: white; padding: ${baseSize * 1.25}px; border-radius: ${baseSize}px; border: none; cursor: pointer; font-size: ${baseSize * 1.2}px; font-weight: bold; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); display: flex; align-items: center; justify-content: center; gap: ${baseSize * 0.75}px; font-family: ${customFont}, ${baseFontStack};">
+              <span style="font-size: ${baseSize * 1.5}px;">📲</span>
+              Kirim Pesanan via WhatsApp
+            </button>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderApp(config) {
+      const app = document.getElementById('app');
+      app.style.backgroundColor = config.background_color || defaultConfig.background_color;
+      app.style.minHeight = '100%';
+
+      if (currentView === 'menu') {
+        app.innerHTML = renderMenuView(config);
+      } else if (currentView === 'cart') {
+        app.innerHTML = renderCartView(config);
+      } else if (currentView === 'checkout') {
+        app.innerHTML = renderCheckoutView(config);
+        
+        // Setup form handlers
+        const form = document.getElementById('checkoutForm');
+        if (form) {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            customerData.name = document.getElementById('customerName').value;
+            customerData.phone = document.getElementById('customerPhone').value;
+            customerData.address = document.getElementById('customerAddress').value;
+            customerData.notes = document.getElementById('customerNotes').value;
+            sendToWhatsApp();
+          });
+
+          // Payment method change
+          const paymentInputs = form.querySelectorAll('input[name="payment"]');
+          paymentInputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+              customerData.payment = e.target.value;
+              renderApp(config);
+            });
+          });
+
+          // Save form data on input
+          document.getElementById('customerName').addEventListener('input', (e) => {
+            customerData.name = e.target.value;
+          });
+          document.getElementById('customerPhone').addEventListener('input', (e) => {
+            customerData.phone = e.target.value;
+          });
+          document.getElementById('customerAddress').addEventListener('input', (e) => {
+            customerData.address = e.target.value;
+          });
+          document.getElementById('customerNotes').addEventListener('input', (e) => {
+            customerData.notes = e.target.value;
+          });
+        }
+      }
+    }
+
+    async function onConfigChange(config) {
+      renderApp(config);
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => {
+              if (window.elementSdk) {
+                window.elementSdk.config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            }
+          },
+          {
+            get: () => config.surface_color || defaultConfig.surface_color,
+            set: (value) => {
+              if (window.elementSdk) {
+                window.elementSdk.config.surface_color = value;
+                window.elementSdk.setConfig({ surface_color: value });
+              }
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              if (window.elementSdk) {
+                window.elementSdk.config.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            }
+          },
+          {
+            get: () => config.primary_action_color || defaultConfig.primary_action_color,
+            set: (value) => {
+              if (window.elementSdk) {
+                window.elementSdk.config.primary_action_color = value;
+                window.elementSdk.setConfig({ primary_action_color: value });
+              }
+            }
+          },
+          {
+            get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+            set: (value) => {
+              if (window.elementSdk) {
+                window.elementSdk.config.secondary_action_color = value;
+                window.elementSdk.setConfig({ secondary_action_color: value });
+              }
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => {
+            if (window.elementSdk) {
+              window.elementSdk.config.font_family = value;
+              window.elementSdk.setConfig({ font_family: value });
+            }
+          }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => {
+            if (window.elementSdk) {
+              window.elementSdk.config.font_size = value;
+              window.elementSdk.setConfig({ font_size: value });
+            }
+          }
+        }
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ["restaurant_name", config.restaurant_name || defaultConfig.restaurant_name],
+        ["tagline", config.tagline || defaultConfig.tagline],
+        ["appetizer_title", config.appetizer_title || defaultConfig.appetizer_title],
+        ["main_course_title", config.main_course_title || defaultConfig.main_course_title],
+        ["dessert_title", config.dessert_title || defaultConfig.dessert_title],
+        ["cart_button_text", config.cart_button_text || defaultConfig.cart_button_text],
+        ["checkout_button_text", config.checkout_button_text || defaultConfig.checkout_button_text],
+        ["name_label", config.name_label || defaultConfig.name_label],
+        ["phone_label", config.phone_label || defaultConfig.phone_label],
+        ["address_label", config.address_label || defaultConfig.address_label],
+        ["notes_label", config.notes_label || defaultConfig.notes_label]
+      ]);
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+
+    renderApp(defaultConfig);
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a9ad2c27283f936',t:'MTc2NTAxNDA0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
